@@ -38,10 +38,10 @@ namespace Jobbr.Runtime.ForkedExecution
             _coreRuntime = new CoreRuntime(loggerFactory, runtimeConfiguration);
 
             // Wire Events to publish status
-            _coreRuntime.Initializing += (sender, args) => _forkedExecutionRestClient.PublishState(JobRunStates.Initializing);
-            _coreRuntime.Starting += (sender, args) => _forkedExecutionRestClient.PublishState(JobRunStates.Processing);
+            _coreRuntime.Initializing += (sender, args) => HandleEvent("Initializing", () => _forkedExecutionRestClient.PublishState(JobRunStates.Initializing));
+            _coreRuntime.Starting += (sender, args) => HandleEvent("Starting", () => _forkedExecutionRestClient.PublishState(JobRunStates.Processing));
 
-            _coreRuntime.Ended += CoreRuntimeOnEnded;
+            _coreRuntime.Ended += (sender, args) => HandleEvent("Ended", () => CoreRuntimeOnEnded(args));
         }
 
         /// <summary>
@@ -143,6 +143,18 @@ namespace Jobbr.Runtime.ForkedExecution
             }
 
             _forkedExecutionRestClient.PublishState(executionEndedEventArgs.Succeeded ? JobRunStates.Completed : JobRunStates.Failed);
+        }
+
+        private void HandleEvent(string eventName, Action eventHandler)
+        {
+            try
+            {
+                eventHandler();
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, $"Error while handling event {eventName}.");
+            }
         }
     }
 }
